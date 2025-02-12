@@ -1,6 +1,6 @@
 ---
-title: "Lab 05 - La Quinta is Spanish for next to Denny's, Pt. 2"
-author: "Insert your name here"
+title: "Lab 05 - Wrangling spatial data"
+author: "Cynthia Jiao"
 date: "Insert date here"
 output: github_document
 ---
@@ -16,34 +16,326 @@ library(dsbox)
 states <- read_csv("data/states.csv")
 ```
 
-### Exercise 1
+### Exercise 1 & 2
 
-Remove this text, and add your answer for Exercise 1 here.
-Add code chunks as needed.
-Don't forget to label your code chunk.
-Do not use spaces in code chunk labels.
+```{r}
+## filtering out all Dennys and La quinta in AK
 
-### Exercise 2
+dn_ak <- dennys %>%
+  filter(state == "AK")
+nrow(dn_ak)
 
-Remove this text, and add your answer for Exercise 1 here.
-Add code chunks as needed.
-Don't forget to label your code chunk.
-Do not use spaces in code chunk labels.
+lq_ak <- laquinta %>%
+  filter(state == "AK")
+nrow(lq_ak)
 
-### Exercise 3
+print(nrow(dn_ak)*nrow(lq_ak))
 
-...
+```
+There are 3 Denny's and 2 La quinta in Alaska. And there are 6 combinations of distance that we need to calculate. 
 
-### Exercise 4
+### Exercise 3 & 4
 
-...
+```{r}
+## combing two AK dataset
+
+dn_lq_ak <- full_join(dn_ak, lq_ak, 
+                      by = "state")
+print(dn_lq_ak)
+
+```
+There are 6 observations in the new data frame. There are 13 variables as the two original dataset were joined by "state." All rest variables are doubled and marked as .x or .y.
 
 ### Exercise 5
 
-...
+```{r}
+
+## creating the Haversine function
+
+haversine <- function(long1, lat1, long2, lat2, round = 3) {
+  # convert to radians
+  long1 <- long1 * pi / 180
+  lat1 <- lat1 * pi / 180
+  long2 <- long2 * pi / 180
+  lat2 <- lat2 * pi / 180
+
+  R <- 6371 # Earth mean radius in km
+
+  a <- sin((lat2 - lat1) / 2)^2 + cos(lat1) * cos(lat2) * sin((long2 - long1) / 2)^2
+  d <- R * 2 * asin(sqrt(a))
+
+  return(round(d, round)) # distance in km
+}
+
+
+```
 
 ### Exercise 6
 
-...
+```{r}
 
-Add exercise headings as needed.
+## using Haversine function to calculate distances
+
+dn_lq_ak <- dn_lq_ak %>%
+  mutate(distance = haversine(longitude.x, latitude.x, longitude.y, latitude.y, round = 3))
+
+
+```
+
+### Exercise 7
+
+```{r}
+## calculate the minimum distance between a Denny’s and La Quinta for each Denny’s location
+
+dn_lq_ak_mindist <- dn_lq_ak %>%
+  group_by(address.x) %>%
+  summarize(closest = min(distance))
+
+print(dn_lq_ak_mindist)
+
+```
+
+### Exercise 8
+
+There are 3 Denny's locations in Alaska that are nearest to a La quinta location. Out of the 6 locations, 3 Denny’s locations in Alaska have a nearby La Quinta within a relatively short distance (under 7 km), indicating that these two chains tend to be co-located in urban areas. However, with only three data points, it's difficult to generalize broader patterns.
+Out of 3 nearest locations, min distance = 2.04, max distance = 6, mean distance = 4.41, median distance = 5.2, sd = 2.09
+```{r}
+## bar plot for the distance between Denny's to Nearest La Quinta for the 3 locations in Alaska.
+
+ggplot(dn_lq_ak_mindist, aes(x = address.x, y = closest)) +
+  geom_bar(stat = "identity", fill = "purple", alpha = 0.5) +
+  labs(title = "Distance from Denny's to Nearest La Quinta (Alaska)",
+       x = "Denny's locations",
+       y = "Distance") +
+  theme_minimal()
+
+## summary stats 
+
+summary_stats_ak <- dn_lq_ak_mindist %>%
+  summarize(
+    mean_distance = mean(closest),
+    median_distance = median(closest),
+    sd_distance = sd(closest),
+    min_distance = min(closest),
+    max_distance = max(closest),
+    iqr_distance = IQR(closest)
+  )
+
+print(summary_stats_ak)
+
+```
+
+### Exercise 9
+
+Repeat the same analysis for North Carolina
+```{r}
+
+## filtering out all Dennys and La quinta in NC
+
+dn_nc <- dennys %>%
+  filter(state == "NC")
+nrow(dn_nc)
+
+lq_nc <- laquinta %>%
+  filter(state == "NC")
+nrow(lq_nc)
+
+print(nrow(dn_nc)*nrow(lq_nc))
+
+```
+
+There are 28 Denny's locations in NC that are nearest to a La quinta location. The distribution of distances between Denny’s and the nearest La Quinta locations in North Carolina is highly variable, ranging from near zero to over 150 km. Under the distance of 25km, there are 8 Denny's location that have a La quinta nearby.
+Between the closest Denny's & La quinta locations in NC, min distance = 1.78, max distance = 188, mean distance = 65.4, and median distance = 53.5, sd = 53.4
+```{r}
+
+## combing two NC dataset
+
+dn_lq_nc <- full_join(dn_nc, lq_nc, 
+                      by = "state")
+print(dn_lq_nc)
+
+## using Haversine function to calculate distances
+
+dn_lq_nc <- dn_lq_nc %>%
+  mutate(distance = haversine(longitude.x, latitude.x, longitude.y, latitude.y, round = 3))
+
+## calculate the minimum distance between a Denny’s and La Quinta for each Denny’s location
+
+dn_lq_nc_mindist <- dn_lq_nc %>%
+  group_by(address.x) %>%
+  summarize(closest = min(distance))
+
+print(dn_lq_nc_mindist)
+
+## bar plot for the distance between Denny's to Nearest La Quinta for the 3 locations in NC
+
+ggplot(dn_lq_nc_mindist, aes(x = address.x, y = closest)) +
+  geom_bar(bindwidth = 10, stat = "identity", fill = "purple", alpha = 0.5) +
+  labs(title = "Distance from Denny's to Nearest La Quinta (North Carolina)",
+       x = "Denny's locations",
+       y = "Distance") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 10)) 
+
+## summary stats 
+
+summary_stats_nc <- dn_lq_nc_mindist %>%
+  summarize(
+    mean_distance = mean(closest),
+    median_distance = median(closest),
+    sd_distance = sd(closest),
+    min_distance = min(closest),
+    max_distance = max(closest),
+    iqr_distance = IQR(closest)
+  )
+
+print(summary_stats_nc)
+
+```
+
+### Exercise 10
+
+Repeat the same analysis for Texas
+```{r}
+
+## filtering out all Dennys and La quinta in TX
+
+dn_tx <- dennys %>%
+  filter(state == "TX")
+nrow(dn_tx)
+
+lq_tx <- laquinta %>%
+  filter(state == "TX")
+nrow(lq_tx)
+
+print(nrow(dn_tx)*nrow(lq_tx))
+
+```
+
+There are 200 Denny's locations in TX that are nearest to a La quinta location. Most distances concentrated below 20 km, but several locations extend beyond 40 km. The histogram suggests that many Denny’s are relatively close to La Quinta hotels locations, but there are also some outliers, where the nearest La Quinta is up to 60 km far away.
+Between the closest Denny's & La quinta locations in TX, min distance = 0.016, max distance = 60.1, mean distance = 5.8, and median distance = 3.37, sd = 8.8
+```{r}
+
+## combing two TX dataset
+
+dn_lq_tx <- full_join(dn_tx, lq_tx, 
+                      by = "state")
+print(dn_lq_tx)
+
+## using Haversine function to calculate distances
+
+dn_lq_tx <- dn_lq_tx %>%
+  mutate(distance = haversine(longitude.x, latitude.x, longitude.y, latitude.y, round = 3))
+
+## calculate the minimum distance between a Denny’s and La Quinta for each Denny’s location
+
+dn_lq_tx_mindist <- dn_lq_tx %>%
+  group_by(address.x) %>%
+  summarize(closest = min(distance))
+
+print(dn_lq_tx_mindist)
+
+## bar plot for the distance between Denny's to Nearest La Quinta for the 3 locations in NC
+
+ggplot(dn_lq_tx_mindist, aes(x = address.x, y = closest)) +
+  geom_bar(bindwidth = 10, stat = "identity", fill = "purple", alpha = 0.5) +
+  labs(title = "Distance from Denny's to Nearest La Quinta (Texas)",
+       x = "Denny's locations",
+       y = "Distance") +
+  theme_minimal() + 
+  theme(axis.text.x = element_blank())  ## remove the exact address of each location...
+
+
+## summary stats 
+
+summary_stats_tx <- dn_lq_tx_mindist %>%
+  summarize(
+    mean_distance = mean(closest),
+    median_distance = median(closest),
+    sd_distance = sd(closest),
+    min_distance = min(closest),
+    max_distance = max(closest),
+    iqr_distance = IQR(closest)
+  )
+
+print(summary_stats_tx)
+
+
+```
+
+### Exercise 11
+
+Repeat the same analysis for New York
+```{r}
+
+## filtering out all Dennys and La quinta in NY
+
+dn_ny <- dennys %>%
+  filter(state == "NY")
+nrow(dn_ny)
+
+lq_ny <- laquinta %>%
+  filter(state == "NY")
+nrow(lq_ny)
+
+print(nrow(dn_ny)*nrow(lq_ny))
+
+```
+
+There are 200 Denny's locations in NY that are nearest to a La quinta location. The distribution of distances between Denny’s and the nearest La Quinta locations in New York is highly variable, ranging from near zero up to 100km.
+Between the closest Denny's & La quinta locations in NY, min distance = 1.28, max distance = 99, mean distance = 33.6, and median distance = 24.158, sd = 28.7
+```{r}
+
+## combing two NY dataset
+
+dn_lq_ny <- full_join(dn_ny, lq_ny, 
+                      by = "state")
+print(dn_lq_ny)
+
+## using Haversine function to calculate distances
+
+dn_lq_ny <- dn_lq_ny %>%
+  mutate(distance = haversine(longitude.x, latitude.x, longitude.y, latitude.y, round = 3))
+
+## calculate the minimum distance between a Denny’s and La Quinta for each Denny’s location
+
+dn_lq_ny_mindist <- dn_lq_ny %>%
+  group_by(address.x) %>%
+  summarize(closest = min(distance))
+
+print(dn_lq_ny_mindist)
+
+## bar plot for the distance between Denny's to Nearest La Quinta for the 3 locations in NY
+
+ggplot(dn_lq_ny_mindist, aes(x = address.x, y = closest)) +
+  geom_bar(bindwidth = 10, stat = "identity", fill = "purple", alpha = 0.5) +
+  labs(title = "Distance from Denny's to Nearest La Quinta (New York)",
+       x = "Denny's locations",
+       y = "Distance") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())  ## remove the exact address of each location...
+
+
+## summary stats 
+
+summary_stats_ny <- dn_lq_ny_mindist %>%
+  summarize(
+    mean_distance = mean(closest),
+    median_distance = median(closest),
+    sd_distance = sd(closest),
+    min_distance = min(closest),
+    max_distance = max(closest),
+    iqr_distance = IQR(closest)
+  )
+
+print(summary_stats_ny)
+
+
+```
+
+
+### Exercise 12
+
+Among the four states examined, Texas is where Mitch Hedberg’s joke is most likely to hold true, because of its relatively small standard deviation of distance between Denny's and La quinta. The majority of Denny’s locations in Texas have a nearby La Quinta within 20 km, with relatively few exceeding 40 km. In contrast, North Carolina and New York show much greater variability in their closest combinations, with many locations over 50–100 km apart, making the joke less applicable. In addition, although Alaska has the shortest absolute distances, its small sample size limits generalization. 
+
+
